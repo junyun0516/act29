@@ -18,6 +18,7 @@ function LoginContent() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [fullName, setFullName] = useState('');
     const [isSignUp, setIsSignUp] = useState(false);
     const supabase = createClient();
 
@@ -49,17 +50,32 @@ function LoginContent() {
                 setLoading(false);
                 return;
             }
-            const { error } = await supabase.auth.signUp({
+            const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
                     data: {
+                        full_name: fullName || email.split('@')[0],
                         token: tokenFromUrl,
                     }
                 }
             });
-            if (error) toast.error(`회원가입 실패: ${error.message}`);
-            else toast.success('회원가입 확인 메일을 보내드렸습니다. 메일 확인 후 로그인해 주세요.');
+            if (error) {
+                toast.error(`회원가입 실패: ${error.message}`);
+            } else if (data.session) {
+                // 이메일 확인이 꺼져있으면 바로 세션이 반환됨
+                toast.success('회원가입이 완료되었습니다!');
+                window.location.href = '/';
+            } else {
+                // 이메일 확인이 켜져있는 경우 — 바로 로그인 시도
+                const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+                if (signInError) {
+                    toast.success('회원가입이 완료되었습니다. 이메일 확인 후 로그인해 주세요.');
+                } else {
+                    toast.success('회원가입이 완료되었습니다!');
+                    window.location.href = '/';
+                }
+            }
         } else {
             const { error } = await supabase.auth.signInWithPassword({
                 email,
@@ -132,6 +148,19 @@ function LoginContent() {
 
                     {/* Email Form */}
                     <form onSubmit={handleEmailAuth} className="space-y-4">
+                        {isSignUp && (
+                            <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <Label htmlFor="fullName" className="text-xs font-semibold text-gray-700">이름</Label>
+                                <Input
+                                    id="fullName"
+                                    type="text"
+                                    placeholder="홍길동"
+                                    value={fullName}
+                                    onChange={(e) => setFullName(e.target.value)}
+                                    className="rounded-none h-11 text-sm border-gray-200 focus:border-gray-900 focus:ring-0 transition-colors"
+                                />
+                            </div>
+                        )}
                         <div className="space-y-1.5">
                             <Label htmlFor="email" className="text-xs font-semibold text-gray-700">이메일</Label>
                             <Input
