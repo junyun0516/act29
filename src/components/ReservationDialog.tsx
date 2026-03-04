@@ -104,8 +104,8 @@ export default function ReservationDialog({
                                 {classrooms.map((c) => (
                                     <SelectItem key={c.id} value={c.id} className="text-sm">
                                         {c.name}{' '}
-                                        <span className="text-gray-400 text-xs">
-                                            ({c.floor} {c.room_number})
+                                        <span className="text-gray-400 text-[10px]">
+                                            ({c.floor})
                                         </span>
                                     </SelectItem>
                                 ))}

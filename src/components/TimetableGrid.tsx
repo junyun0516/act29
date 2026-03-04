@@ -45,8 +45,8 @@ export default function TimetableGrid({
                                 className="border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap min-w-[9rem]"
                             >
                                 {cls.name}
-                                <span className="ml-1 text-gray-400 font-normal">
-                                    {cls.floor} {cls.room_number}
+                                <span className="ml-1 text-gray-400 font-normal text-[10px]">
+                                    {cls.floor}
                                 </span>
                             </th>
                         ))}

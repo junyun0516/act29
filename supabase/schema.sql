@@ -32,7 +32,6 @@ CREATE POLICY "본인만 수정" ON lesson_profiles
 CREATE TABLE lesson_classrooms (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   floor       TEXT NOT NULL,
-  room_number TEXT NOT NULL,
   name        TEXT NOT NULL,
   is_active   BOOLEAN NOT NULL DEFAULT TRUE,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()

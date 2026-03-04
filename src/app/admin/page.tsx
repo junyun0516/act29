@@ -27,7 +27,7 @@ export default function AdminPage() {
     const [pendingReservations, setPendingReservations] = useState<Reservation[]>([]);
 
     // Classroom form
-    const [cls, setCls] = useState({ floor: '', room_number: '', name: '' });
+    const [cls, setCls] = useState({ floor: '', name: '' });
 
     // Invitation
     const [inviteEmail, setInviteEmail] = useState('');
@@ -41,7 +41,7 @@ export default function AdminPage() {
 
     const fetchAll = async () => {
         const [cls, tchr, rsv] = await Promise.all([
-            supabase.from('lesson_classrooms').select('*').order('floor').order('room_number'),
+            supabase.from('lesson_classrooms').select('*').order('floor').order('name'),
             supabase.from('lesson_profiles').select('*').eq('role', 'teacher'),
             supabase
                 .from('lesson_reservations')
@@ -57,7 +57,7 @@ export default function AdminPage() {
 
     // ── Classroom 추가 ────────────────────────────────
     const addClassroom = async () => {
-        if (!cls.floor || !cls.room_number || !cls.name) {
+        if (!cls.floor || !cls.name) {
             toast.error('모든 필드를 입력해주세요.');
             return;
         }
@@ -68,7 +68,7 @@ export default function AdminPage() {
         if (error) toast.error('강의실 추가 실패');
         else {
             toast.success('강의실이 추가되었습니다.');
-            setCls({ floor: '', room_number: '', name: '' });
+            setCls({ floor: '', name: '' });
             fetchAll();
         }
     };
@@ -231,22 +231,13 @@ export default function AdminPage() {
                     {/* ── 강의실 관리 ── */}
                     <TabsContent value="classrooms">
                         <SectionCard title="강의실 추가">
-                            <div className="grid grid-cols-3 gap-3 mb-3">
+                            <div className="grid grid-cols-2 gap-3 mb-3">
                                 <div className="space-y-1">
                                     <Label className="text-xs">층</Label>
                                     <Input
                                         placeholder="예: 3층"
                                         value={cls.floor}
                                         onChange={(e) => setCls({ ...cls, floor: e.target.value })}
-                                        className="rounded-none h-9 text-sm"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label className="text-xs">호수</Label>
-                                    <Input
-                                        placeholder="예: 301호"
-                                        value={cls.room_number}
-                                        onChange={(e) => setCls({ ...cls, room_number: e.target.value })}
                                         className="rounded-none h-9 text-sm"
                                     />
                                 </div>
@@ -270,7 +261,6 @@ export default function AdminPage() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>층</TableHead>
-                                        <TableHead>호수</TableHead>
                                         <TableHead>이름</TableHead>
                                         <TableHead className="text-right">상태</TableHead>
                                     </TableRow>
@@ -279,7 +269,6 @@ export default function AdminPage() {
                                     {classrooms.map((c) => (
                                         <TableRow key={c.id}>
                                             <TableCell className="text-xs">{c.floor}</TableCell>
-                                            <TableCell className="text-xs">{c.room_number}</TableCell>
                                             <TableCell className="text-xs font-medium">{c.name}</TableCell>
                                             <TableCell className="text-right">
                                                 <button

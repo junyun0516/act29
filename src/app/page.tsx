@@ -68,7 +68,7 @@ export default function HomePage() {
         *,
         teacher:lesson_profiles(full_name),
         lesson:lesson_lessons(title),
-        classroom:lesson_classrooms(name, floor, room_number)
+        classroom:lesson_classrooms(name, floor)
       `)
       .eq('date', date)
       .in('status', ['pending', 'approved']);

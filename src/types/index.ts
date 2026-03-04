@@ -16,7 +16,6 @@ export type Profile = {
 export type Classroom = {
     id: string;
     floor: string;      // 층 (예: "3층")
-    room_number: string; // 호수 (예: "301호")
     name: string;        // 이름 (예: "피아노실")
     is_active: boolean;
     created_at: string;
