@@ -17,6 +17,7 @@ function LoginContent() {
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [isSignUp, setIsSignUp] = useState(false);
     const supabase = createClient();
 
@@ -43,6 +44,11 @@ function LoginContent() {
 
         setLoading(true);
         if (isSignUp) {
+            if (password !== confirmPassword) {
+                toast.error('비밀번호가 일치하지 않습니다.');
+                setLoading(false);
+                return;
+            }
             const { error } = await supabase.auth.signUp({
                 email,
                 password,
@@ -150,6 +156,20 @@ function LoginContent() {
                                 required
                             />
                         </div>
+                        {isSignUp && (
+                            <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <Label htmlFor="confirmPassword" className="text-xs font-semibold text-gray-700">비밀번호 확인</Label>
+                                <Input
+                                    id="confirmPassword"
+                                    type="password"
+                                    placeholder="••••••••"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    className="rounded-none h-11 text-sm border-gray-200 focus:border-gray-900 focus:ring-0 transition-colors"
+                                    required
+                                />
+                            </div>
+                        )}
                         <Button
                             type="submit"
                             disabled={loading}
