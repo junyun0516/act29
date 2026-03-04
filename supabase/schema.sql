@@ -114,3 +114,64 @@ CREATE POLICY "관리자만 관리" ON lesson_invitations
 --    INSERT INTO lesson_profiles (id, email, full_name, role)
 --    VALUES ('<user_id>', '<email>', '관리자 이름', 'admin');
 -- ===========================================================
+
+-- ===========================================================
+-- 6. 초기 데이터 (강의실 등)
+-- 필요 시 수동으로 추가
+
+-- 7. 신규 가입 시 프로필 자동 생성 및 초대 토큰 처리 트리거
+-- OAuth 및 이메일 가입 시 lesson_profiles 테이블에 자동으로 정보를 입력하고, 초대 토큰이 있다면 즉시 역할을 부여합니다.
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+DECLARE
+  assigned_role TEXT := 'user';
+  invitation_role TEXT;
+  token_val TEXT;
+BEGIN
+  -- 1. 메타데이터에서 초대 토큰 추출
+  token_val := new.raw_user_meta_data->>'token';
+  
+  -- 2. 토큰이 있는 경우 초대장 테이블 확인
+  IF token_val IS NOT NULL THEN
+    SELECT role INTO invitation_role 
+    FROM public.lesson_invitations 
+    WHERE token = token_val AND used = false AND expires_at > now()
+    LIMIT 1;
+    
+    -- 유효한 토큰인 경우 역할 할당 및 사용 처리
+    IF invitation_role IS NOT NULL THEN
+      assigned_role := invitation_role;
+      UPDATE public.lesson_invitations SET used = true WHERE token = token_val;
+    END IF;
+  END IF;
+
+  -- 3. 프로필 생성 (이미 있으면 업데이트)
+  INSERT INTO public.lesson_profiles (id, email, full_name, role)
+  VALUES (
+    new.id, 
+    new.email, 
+    COALESCE(
+      new.raw_user_meta_data->>'full_name', 
+      COALESCE(new.raw_user_meta_data->>'name', '')
+    ), 
+    assigned_role
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    email = EXCLUDED.email,
+    full_name = CASE WHEN (lesson_profiles.full_name IS NULL OR lesson_profiles.full_name = '') THEN EXCLUDED.full_name ELSE lesson_profiles.full_name END,
+    role = CASE WHEN (lesson_profiles.role = 'user' OR lesson_profiles.role IS NULL) THEN EXCLUDED.role ELSE lesson_profiles.role END;
+
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 트리거 생성
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- 최초 관리자 지정을 위한 팁:
+-- 해당 사용자로 가입한 후, Supabase SQL Editor에서 다음을 실행하세요:
+-- UPDATE lesson_profiles SET role = 'admin' WHERE email = '본인이메일';
+-- ===========================================================

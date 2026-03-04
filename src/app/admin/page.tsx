@@ -45,7 +45,7 @@ export default function AdminPage() {
             supabase.from('lesson_profiles').select('*').eq('role', 'teacher'),
             supabase
                 .from('lesson_reservations')
-                .select('*, teacher:lesson_profiles(full_name), lesson:lesson_lessons(title), classroom:lesson_classrooms(name,floor,room_number)')
+                .select('*, teacher:lesson_profiles(full_name), lesson:lesson_lessons(title), classroom:lesson_classrooms(name,floor)')
                 .eq('status', 'pending')
                 .order('date')
                 .order('start_time'),
