@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Classroom, Profile, Reservation } from '@/types';
@@ -283,8 +285,8 @@ export default function AdminPage() {
                                                 <button
                                                     onClick={() => toggleClassroom(c.id, c.is_active)}
                                                     className={`text-xs px-2 py-1 border ${c.is_active
-                                                            ? 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                                                            : 'border-gray-200 text-gray-400'
+                                                        ? 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                                                        : 'border-gray-200 text-gray-400'
                                                         }`}
                                                 >
                                                     {c.is_active ? '활성' : '비활성'}
