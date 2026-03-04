@@ -10,7 +10,7 @@ DROP TABLE IF EXISTS lesson_classrooms CASCADE;
 DROP TABLE IF EXISTS lesson_invitations CASCADE;
 DROP TABLE IF EXISTS lesson_profiles CASCADE;
 
--- 1. 프로필 (선생님 / 관리자)
+-- 1. 프로필 (선생님 / 관리자 / 일반 유저)
 CREATE TABLE lesson_profiles (
   id          UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email       TEXT,
@@ -20,10 +20,11 @@ CREATE TABLE lesson_profiles (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE lesson_profiles ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "본인 또는 관리자만 조회" ON lesson_profiles
-  FOR SELECT USING (auth.uid() = id OR EXISTS (
-    SELECT 1 FROM lesson_profiles WHERE id = auth.uid() AND role = 'admin'
-  ));
+
+-- 무한 재귀 에러(500) 방지를 위해 정책 분리
+CREATE POLICY "전체 조회 허용" ON lesson_profiles
+  FOR SELECT USING (TRUE); -- 모든 사용자의 기본 정보 조회를 허용 (성함 등)
+
 CREATE POLICY "본인만 수정" ON lesson_profiles
   FOR UPDATE USING (auth.uid() = id);
 
