@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, X } from 'lucide-react';
+import { Trash2, X, Edit2 } from 'lucide-react';
 import Link from 'next/link';
 
 // ======================================================
@@ -30,6 +30,7 @@ export default function AdminPage() {
 
     // Classroom form
     const [cls, setCls] = useState({ floor: '', name: '' });
+    const [selectedClassroom, setSelectedClassroom] = useState<Classroom | null>(null);
 
     const [selectedTeacher, setSelectedTeacher] = useState<Profile | null>(null);
 
@@ -74,11 +75,42 @@ export default function AdminPage() {
     };
 
     const toggleClassroom = async (id: string, current: boolean) => {
-        await supabase
+        const { error } = await supabase
             .from('lesson_classrooms')
             .update({ is_active: !current })
             .eq('id', id);
-        fetchAll();
+        if (error) toast.error('상태 변경 실패');
+        else fetchAll();
+    };
+
+    const deleteClassroom = async (id: string) => {
+        if (!confirm('정말 삭제하시겠습니까? 이 강의실의 모든 예약 내역도 영향을 받을 수 있습니다.')) return;
+        const { error } = await supabase.from('lesson_classrooms').delete().eq('id', id);
+        if (error) {
+            if (error.code === '23503') {
+                toast.error('예약 내역이 있는 강의실은 삭제할 수 없습니다. 대신 OFF 처리를 이용해주세요.');
+            } else {
+                toast.error('삭제 실패');
+            }
+        } else {
+            toast.success('삭제되었습니다.');
+            fetchAll();
+        }
+    };
+
+    const updateClassroom = async (id: string, updates: Partial<Classroom>) => {
+        const { error } = await supabase
+            .from('lesson_classrooms')
+            .update(updates)
+            .eq('id', id);
+
+        if (error) {
+            toast.error('정보 수정 실패');
+        } else {
+            toast.success('정보가 수정되었습니다.');
+            setSelectedClassroom(null);
+            fetchAll();
+        }
     };
 
     // ── 선생님 삭제 ────────────────────────────────────
@@ -203,7 +235,8 @@ export default function AdminPage() {
                                     <TableRow>
                                         <TableHead>층</TableHead>
                                         <TableHead>이름</TableHead>
-                                        <TableHead className="text-right">상태</TableHead>
+                                        <TableHead>상태</TableHead>
+                                        <TableHead className="text-right">관리</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -211,7 +244,7 @@ export default function AdminPage() {
                                         <TableRow key={c.id}>
                                             <TableCell className="text-xs">{c.floor}</TableCell>
                                             <TableCell className="text-xs font-medium">{c.name}</TableCell>
-                                            <TableCell className="text-right">
+                                            <TableCell>
                                                 <button
                                                     onClick={() => toggleClassroom(c.id, c.is_active)}
                                                     className={`text-[10px] font-bold px-2 py-0.5 border ${c.is_active
@@ -221,6 +254,24 @@ export default function AdminPage() {
                                                 >
                                                     {c.is_active ? 'ON' : 'OFF'}
                                                 </button>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="flex justify-end gap-1">
+                                                    <button
+                                                        onClick={() => setSelectedClassroom(c)}
+                                                        className="p-1.5 text-gray-300 hover:text-gray-900 transition-colors"
+                                                        title="수정"
+                                                    >
+                                                        <Edit2 size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deleteClassroom(c.id)}
+                                                        className="p-1.5 text-gray-300 hover:text-red-500 transition-colors"
+                                                        title="삭제"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -350,6 +401,34 @@ export default function AdminPage() {
                     </div>
                 </>
             )}
+
+            {/* Classroom Details Slide-over Panel */}
+            {selectedClassroom && (
+                <>
+                    <div
+                        className="fixed inset-0 bg-black/20 z-40 transition-opacity"
+                        onClick={() => setSelectedClassroom(null)}
+                    />
+                    <div className="fixed inset-y-0 right-0 w-full max-w-sm bg-white shadow-xl z-50 border-l border-gray-200 flex flex-col animate-in slide-in-from-right-full duration-200">
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
+                            <h2 className="text-sm font-semibold text-gray-800">강의실 정보 수정</h2>
+                            <button
+                                onClick={() => setSelectedClassroom(null)}
+                                className="p-1 hover:bg-gray-200 rounded text-gray-500 transition-colors"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                        <div className="p-4 overflow-y-auto flex-1 h-0">
+                            <ClassroomEditForm
+                                classroom={selectedClassroom}
+                                onSave={(updates) => updateClassroom(selectedClassroom.id, updates)}
+                                onCancel={() => setSelectedClassroom(null)}
+                            />
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
     );
 }
@@ -402,6 +481,58 @@ function TeacherEditForm({
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
                     placeholder="예: 피아노, 보컬 등"
+                    className="rounded-none h-9 text-sm"
+                />
+            </div>
+
+            <div className="pt-4 flex gap-2">
+                <Button type="button" variant="outline" onClick={onCancel} className="flex-1 rounded-none text-sm h-9">
+                    취소
+                </Button>
+                <Button type="submit" className="flex-1 rounded-none text-sm h-9 bg-gray-900 hover:bg-gray-700">
+                    저장
+                </Button>
+            </div>
+        </form>
+    );
+}
+
+// ── Classroom Edit Form ────────────────────────────────
+function ClassroomEditForm({
+    classroom,
+    onSave,
+    onCancel
+}: {
+    classroom: Classroom,
+    onSave: (data: Partial<Classroom>) => void,
+    onCancel: () => void
+}) {
+    const [floor, setFloor] = useState(classroom.floor || '');
+    const [name, setName] = useState(classroom.name || '');
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave({ floor, name });
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-gray-700">층</Label>
+                <Input
+                    value={floor}
+                    onChange={(e) => setFloor(e.target.value)}
+                    placeholder="예: 3층"
+                    className="rounded-none h-9 text-sm"
+                />
+            </div>
+
+            <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-gray-700">이름</Label>
+                <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="예: 피아노실"
                     className="rounded-none h-9 text-sm"
                 />
             </div>

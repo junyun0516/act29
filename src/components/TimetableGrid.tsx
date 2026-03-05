@@ -53,30 +53,46 @@ export default function TimetableGrid({
     // (classroomId, start_time) → Reservation
     const reservationMap = new Map<string, Reservation>();
     for (const r of reservations) {
-        reservationMap.set(`${r.classroom_id}__${r.start_time}`, r);
+        const start = r.start_time.slice(0, 5);
+        const end = r.end_time.slice(0, 5);
+
+        // 해당 예약이 차지하는 모든 슬롯에 매핑
+        // 예: 09:00 ~ 10:00 예약이면 09:00, 09:30 슬롯 모두에 표시
+        for (const slot of slots) {
+            if (slot >= start && slot < end) {
+                reservationMap.set(`${r.classroom_id}__${slot}`, r);
+            }
+        }
     }
 
     // (classroomId, start_time) → RecurringSchedule (해당 요일만)
     const recurringMap = new Map<string, RecurringSchedule>();
     for (const rs of recurringSchedules) {
         if (rs.day_of_week === dayOfWeek) {
-            recurringMap.set(`${rs.classroom_id}__${rs.start_time.slice(0, 5)}`, rs);
+            const start = rs.start_time.slice(0, 5);
+            const end = rs.end_time.slice(0, 5);
+
+            for (const slot of slots) {
+                if (slot >= start && slot < end) {
+                    recurringMap.set(`${rs.classroom_id}__${slot}`, rs);
+                }
+            }
         }
     }
 
     return (
-        <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse text-sm">
+        <div className="overflow-x-auto overflow-y-auto max-h-[70vh] border border-gray-200" style={{ overscrollBehavior: 'contain' }}>
+            <table className="min-w-full border-separate border-spacing-0 text-sm">
                 <thead>
                     <tr>
-                        <th className="sticky left-0 z-10 bg-gray-50 border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-500 text-left min-w-[5rem]">
+                        <th className="sticky top-0 left-0 z-30 bg-gray-50 border-b border-r border-gray-200 px-3 py-2 text-xs font-semibold text-gray-500 text-left min-w-[5rem]">
                             시간
                             {isAdmin && <span className="ml-1 text-blue-500" title="관리자 권한 활성화됨">*</span>}
                         </th>
                         {classrooms.map((cls) => (
                             <th
                                 key={cls.id}
-                                className="border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap min-w-[9rem]"
+                                className="sticky top-0 z-20 bg-white border-b border-r border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap min-w-[9rem]"
                             >
                                 {cls.name}
                                 <span className="ml-1 text-gray-400 font-normal text-[10px]">
@@ -89,7 +105,7 @@ export default function TimetableGrid({
                 <tbody>
                     {slots.map((slot) => (
                         <tr key={slot}>
-                            <td className="sticky left-0 z-10 bg-gray-50 border border-gray-200 px-3 py-2 text-xs font-mono text-gray-500 whitespace-nowrap">
+                            <td className="sticky left-0 z-10 bg-gray-50 border-b border-r border-gray-200 px-3 py-2 text-xs font-mono text-gray-500 whitespace-nowrap">
                                 {slot}
                             </td>
                             {classrooms.map((cls) => {
@@ -105,17 +121,17 @@ export default function TimetableGrid({
                                     });
 
                                 const isOwner = reservation?.teacher_id === currentUser?.id;
+                                // 슬롯 시작 시간이 이미 지났으면 과거로 처리
+                                // 단, 슬롯은 30분 단위이므로 시작 시각 기준 (시작되지 않은 슬롯은 예약 가능)
                                 const past = isPastTime(date, slot);
-                                const canBook =
-                                    currentUser?.role === 'teacher' ||
-                                    currentUser?.role === 'admin';
+                                const canBook = !!currentUser; // 로그인한 사용자는 누구나 예약 가능
 
                                 // ── Blocked (N/A) ──
                                 if (reservation?.status === 'blocked') {
                                     return (
                                         <td
                                             key={key}
-                                            className="border border-gray-200 p-0 relative"
+                                            className="border-b border-r border-gray-200 p-0 relative"
                                             style={{
                                                 background: 'repeating-linear-gradient(45deg, #f3f4f6, #f3f4f6 6px, #e5e7eb 6px, #e5e7eb 12px)',
                                             }}
@@ -157,7 +173,7 @@ export default function TimetableGrid({
                                         <td
                                             key={key}
                                             className={cn(
-                                                'border border-gray-200 p-0',
+                                                'border-b border-r border-gray-200 p-0',
                                                 reservation.checked_in_at
                                                     ? 'bg-green-50'
                                                     : 'bg-gray-100'
@@ -166,10 +182,10 @@ export default function TimetableGrid({
                                             <div className="group w-full h-full min-h-[3rem] px-2 py-1.5 flex flex-col justify-center relative">
                                                 <div className="flex flex-col gap-0.5 z-0">
                                                     <span className="text-xs font-semibold text-gray-800 truncate pr-6">
-                                                        {reservation.teacher?.full_name ?? '선생님'}
+                                                        {reservation.teacher?.full_name || '선생님'}
                                                     </span>
                                                     <span className="text-[10px] text-gray-500 truncate pr-6">
-                                                        {reservation.lesson?.title ?? '수업'}
+                                                        {reservation.lesson?.title || reservation.teacher?.subject || '일반 수업'}
                                                     </span>
                                                     <div className="flex gap-1 flex-wrap mt-0.5">
                                                         {hasRecurring && (
@@ -227,7 +243,7 @@ export default function TimetableGrid({
                                     return (
                                         <td
                                             key={key}
-                                            className="border border-gray-200 p-0 bg-blue-50/50"
+                                            className="border-b border-r border-gray-200 p-0 bg-blue-50/50"
                                         >
                                             <div className="group w-full h-full min-h-[3rem] px-2 py-1.5 flex flex-col justify-center relative">
                                                 <div className="flex flex-col gap-0.5 z-0">
@@ -235,7 +251,7 @@ export default function TimetableGrid({
                                                         {recurring.teacher?.full_name ?? '선생님'}
                                                     </span>
                                                     <span className="text-[10px] text-gray-500 truncate pr-6">
-                                                        {recurring.lesson?.title ?? '수업'}
+                                                        {recurring.lesson?.title || recurring.teacher?.subject || '수업'}
                                                     </span>
                                                     <span className="text-[10px] bg-blue-100 text-blue-700 px-1 w-fit">
                                                         반복
@@ -262,7 +278,7 @@ export default function TimetableGrid({
                                 return (
                                     <td
                                         key={key}
-                                        className="border border-gray-200 p-0 bg-white"
+                                        className="border-b border-r border-gray-200 p-0 bg-white"
                                     >
                                         <div className="group w-full h-full min-h-[3rem] p-1 flex items-center justify-center relative">
                                             {canBook && (!past || allowAdminInPast) ? (
