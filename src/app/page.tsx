@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import WeeklyCalendar from '@/components/WeeklyCalendar';
 import TimetableGrid from '@/components/TimetableGrid';
 import ReservationDialog from '@/components/ReservationDialog';
-import { Classroom, Profile, Reservation, Lesson } from '@/types';
+import { Classroom, Profile, Reservation, Lesson, OperatingHours, RecurringSchedule } from '@/types';
 import { toDateString } from '@/lib/reservation';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -18,7 +18,10 @@ export default function HomePage() {
   const [selectedDate, setSelectedDate] = useState(toDateString(new Date()));
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [recurringSchedules, setRecurringSchedules] = useState<RecurringSchedule[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [teachers, setTeachers] = useState<Profile[]>([]);
+  const [operatingHours, setOperatingHours] = useState<OperatingHours[]>([]);
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogInit, setDialogInit] = useState<{
@@ -48,14 +51,48 @@ export default function HomePage() {
         .order('floor');
       setClassrooms(cls ?? []);
 
-      // 수업 (선생님 소유)
+      // 수업 (선생님 소유 또는 관리자면 전체 조회)
       if (user) {
-        const { data: lsn } = await supabase
-          .from('lesson_lessons')
-          .select('*, teacher:lesson_profiles(full_name)')
-          .eq('teacher_id', user.id);
-        setLessons(lsn ?? []);
+        const { data: profileData } = await supabase
+          .from('lesson_profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+
+        if (profileData?.role === 'admin') {
+          // 관리자: 모든 수업 조회
+          const { data: lsn } = await supabase
+            .from('lesson_lessons')
+            .select('*, teacher:lesson_profiles(full_name)');
+          setLessons(lsn ?? []);
+        } else {
+          // 선생님: 본인 수업만
+          const { data: lsn } = await supabase
+            .from('lesson_lessons')
+            .select('*, teacher:lesson_profiles(full_name)')
+            .eq('teacher_id', user.id);
+          setLessons(lsn ?? []);
+        }
       }
+
+      // 운영 시간
+      const { data: hours } = await supabase
+        .from('lesson_operating_hours')
+        .select('*');
+      setOperatingHours(hours ?? []);
+
+      // 반복 스케줄
+      const { data: recurring } = await supabase
+        .from('lesson_recurring_schedules')
+        .select('*, teacher:lesson_profiles(full_name), lesson:lesson_lessons(title)');
+      setRecurringSchedules(recurring ?? []);
+
+      // 선생님 목록 (관리자용)
+      const { data: teacherList } = await supabase
+        .from('lesson_profiles')
+        .select('*')
+        .in('role', ['teacher', 'admin']);
+      setTeachers(teacherList ?? []);
     };
     init();
   }, []);
@@ -71,7 +108,7 @@ export default function HomePage() {
         classroom:lesson_classrooms(name, floor)
       `)
       .eq('date', date)
-      .in('status', ['pending', 'approved']);
+      .in('status', ['approved', 'blocked']);
     setReservations(data ?? []);
   }, []);
 
@@ -81,26 +118,29 @@ export default function HomePage() {
 
   // ── 예약 신청 ──────────────────────────────────────
   const handleBook = async (data: {
-    lessonId: string;
+    lessonId?: string;
     classroomId: string;
     startTime: string;
     endTime: string;
+    teacherId?: string;
   }) => {
     if (!currentUser) return;
     const { error } = await supabase.from('lesson_reservations').insert({
       classroom_id: data.classroomId,
-      lesson_id: data.lessonId,
-      teacher_id: currentUser.id,
+      lesson_id: data.lessonId || null,
+      teacher_id: data.teacherId || currentUser.id,
       date: selectedDate,
       start_time: data.startTime,
       end_time: data.endTime,
-      status: 'pending',
-      checked_in_at: null,
     });
     if (error) {
-      toast.error('예약 신청 중 오류가 발생했습니다.');
+      if (error.code === '23505') {
+        toast.error('해당 시간에 이미 예약이 있습니다.');
+      } else {
+        toast.error('예약 중 오류가 발생했습니다.');
+      }
     } else {
-      toast.success('예약이 신청되었습니다. 관리자 승인을 기다려주세요.');
+      toast.success('예약이 완료되었습니다!');
       fetchReservations(selectedDate);
     }
   };
@@ -130,6 +170,92 @@ export default function HomePage() {
     } else {
       toast.success('체크인 완료!');
       fetchReservations(selectedDate);
+    }
+  };
+
+  // ── 슬롯 차단 (N/A) ────────────────────────────────
+  const handleBlock = async (classroomId: string, startTime: string) => {
+    if (!currentUser) return;
+    const endH = parseInt(startTime.split(':')[0]);
+    const endM = parseInt(startTime.split(':')[1]) + 30;
+    const endTime = `${String(endM >= 60 ? endH + 1 : endH).padStart(2, '0')}:${String(endM % 60).padStart(2, '0')}`;
+
+    const { error } = await supabase.from('lesson_reservations').insert({
+      classroom_id: classroomId,
+      teacher_id: currentUser.id,
+      date: selectedDate,
+      start_time: startTime,
+      end_time: endTime,
+      status: 'blocked',
+    });
+    if (error) {
+      toast.error('차단 설정 중 오류가 발생했습니다.');
+    } else {
+      toast.success('해당 시간이 사용 불가(N/A)로 설정되었습니다.');
+      fetchReservations(selectedDate);
+    }
+  };
+
+  // ── 차단 해제 ──────────────────────────────────────
+  const handleUnblock = async (reservationId: string) => {
+    const { error } = await supabase
+      .from('lesson_reservations')
+      .delete()
+      .eq('id', reservationId);
+    if (error) {
+      toast.error('차단 해제 중 오류가 발생했습니다.');
+    } else {
+      toast.success('차단이 해제되었습니다.');
+      fetchReservations(selectedDate);
+    }
+  };
+
+  // ── 반복 스케줄 토글 ───────────────────────────────
+  const handleToggleRecurring = async (
+    classroomId: string,
+    startTime: string,
+    reservation?: Reservation,
+    recurring?: RecurringSchedule
+  ) => {
+    if (recurring) {
+      // 반복 해제
+      const { error } = await supabase
+        .from('lesson_recurring_schedules')
+        .delete()
+        .eq('id', recurring.id);
+      if (error) toast.error('반복 해제 실패');
+      else {
+        toast.success('반복 스케줄이 해제되었습니다.');
+        // 반복 스케줄 다시 로드
+        const { data } = await supabase
+          .from('lesson_recurring_schedules')
+          .select('*, teacher:lesson_profiles(full_name), lesson:lesson_lessons(title)');
+        setRecurringSchedules(data ?? []);
+      }
+    } else if (reservation) {
+      // 반복 설정: 예약 정보 기반으로 반복 스케줄 생성
+      const dayOfWeek = new Date(selectedDate).getDay();
+      const { error } = await supabase.from('lesson_recurring_schedules').insert({
+        day_of_week: dayOfWeek,
+        start_time: reservation.start_time,
+        end_time: reservation.end_time,
+        classroom_id: classroomId,
+        teacher_id: reservation.teacher_id,
+        lesson_id: reservation.lesson_id,
+      });
+      if (error) {
+        if (error.code === '23505') {
+          toast.error('이미 해당 시간에 반복 스케줄이 설정되어 있습니다.');
+        } else {
+          toast.error('반복 설정 실패');
+        }
+      } else {
+        toast.success('매주 반복 스케줄이 설정되었습니다.');
+        const { data } = await supabase
+          .from('lesson_recurring_schedules')
+          .select('*, teacher:lesson_profiles(full_name), lesson:lesson_lessons(title)');
+        setRecurringSchedules(data ?? []);
+      }
     }
   };
 
@@ -195,13 +321,18 @@ export default function HomePage() {
             date={selectedDate}
             classrooms={classrooms}
             reservations={reservations}
+            recurringSchedules={recurringSchedules}
             currentUser={currentUser}
+            operatingHours={operatingHours.find(h => h.day_of_week === (new Date(selectedDate).getDay()))}
             onBook={(classroomId, startTime) => {
               setDialogInit({ classroomId, startTime });
               setDialogOpen(true);
             }}
             onCancel={handleCancel}
             onCheckIn={handleCheckIn}
+            onBlock={handleBlock}
+            onUnblock={handleUnblock}
+            onToggleRecurring={handleToggleRecurring}
           />
         )}
       </main>
@@ -217,6 +348,9 @@ export default function HomePage() {
           initialStartTime={dialogInit.startTime}
           lessons={lessons}
           classrooms={classrooms}
+          teachers={teachers}
+          currentUser={currentUser}
+          operatingHours={operatingHours.find(h => h.day_of_week === (new Date(selectedDate).getDay()))}
         />
       )}
     </div>
