@@ -17,7 +17,7 @@ export function isVacant(reservation: {
 }
 
 /**
- * HH:mm 형식의 30분 단위 타임슬롯 배열을 생성합니다.
+ * HH:mm 형식의 1시간 단위 타임슬롯 배열을 생성합니다.
  * @param startTime '09:00' format
  * @param endTime '22:00' format
  */
@@ -35,11 +35,8 @@ export function generateTimeSlots(
     while (currentH < endH || (currentH === endH && currentM < endM)) {
         slots.push(`${String(currentH).padStart(2, '0')}:${String(currentM).padStart(2, '0')}`);
 
-        currentM += 30;
-        if (currentM >= 60) {
-            currentM -= 60;
-            currentH += 1;
-        }
+        // 1시간 단위로 변경
+        currentH += 1;
     }
     return slots;
 }
@@ -66,7 +63,10 @@ export function getTwoWeekDates(): Date[] {
  * Date를 YYYY-MM-DD 문자열로 변환합니다.
  */
 export function toDateString(date: Date): string {
-    return date.toISOString().split('T')[0];
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
 }
 
 /**

@@ -82,7 +82,7 @@ export type RecurringSchedule = {
     created_at: string;
     updated_at: string;
     // 관계 데이터 (조인용)
-    teacher?: { full_name: string };
+    teacher?: { full_name: string; subject: string | null };
     lesson?: { title: string };
 };
 

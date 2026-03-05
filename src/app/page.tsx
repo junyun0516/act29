@@ -11,7 +11,7 @@ import { Classroom, Profile, Reservation, Lesson, OperatingHours, RecurringSched
 import { toDateString } from '@/lib/reservation';
 import { toast } from 'sonner';
 import Link from 'next/link';
-import { LogIn, LogOut, Settings } from 'lucide-react';
+import { LogIn, LogOut, Settings, User } from 'lucide-react';
 
 export default function HomePage() {
   const supabase = createClient();
@@ -84,7 +84,7 @@ export default function HomePage() {
       // 반복 스케줄
       const { data: recurring } = await supabase
         .from('lesson_recurring_schedules')
-        .select('*, teacher:lesson_profiles(full_name), lesson:lesson_lessons(title)');
+        .select('*, teacher:lesson_profiles(full_name, subject), lesson:lesson_lessons(title)');
       setRecurringSchedules(recurring ?? []);
 
       // 선생님 목록 (관리자용)
@@ -103,7 +103,7 @@ export default function HomePage() {
       .from('lesson_reservations')
       .select(`
         *,
-        teacher:lesson_profiles(full_name),
+        teacher:lesson_profiles(full_name, subject),
         lesson:lesson_lessons(title),
         classroom:lesson_classrooms(name, floor)
       `)
@@ -149,7 +149,7 @@ export default function HomePage() {
   const handleCancel = async (reservationId: string) => {
     const { error } = await supabase
       .from('lesson_reservations')
-      .update({ status: 'cancelled' })
+      .delete()
       .eq('id', reservationId);
     if (error) {
       toast.error('취소 중 오류가 발생했습니다.');
@@ -176,9 +176,8 @@ export default function HomePage() {
   // ── 슬롯 차단 (N/A) ────────────────────────────────
   const handleBlock = async (classroomId: string, startTime: string) => {
     if (!currentUser) return;
-    const endH = parseInt(startTime.split(':')[0]);
-    const endM = parseInt(startTime.split(':')[1]) + 30;
-    const endTime = `${String(endM >= 60 ? endH + 1 : endH).padStart(2, '0')}:${String(endM % 60).padStart(2, '0')}`;
+    const [h, m] = startTime.split(':').map(Number);
+    const endTime = `${String(h + 1).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 
     const { error } = await supabase.from('lesson_reservations').insert({
       classroom_id: classroomId,
@@ -284,13 +283,36 @@ export default function HomePage() {
               </Link>
             )}
             {currentUser ? (
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900 border border-gray-200 px-2 py-1 transition-colors"
-              >
-                <LogOut size={12} />
-                로그아웃
-              </button>
+              <>
+                <div className="flex items-center gap-2 mr-1 pr-3 py-1 border-r border-gray-100 h-6">
+                  {currentUser.avatar_url ? (
+                    <img
+                      src={currentUser.avatar_url}
+                      alt={currentUser.full_name || ''}
+                      className="w-5 h-5 rounded-full object-cover border border-gray-100 shadow-sm"
+                    />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-gray-50 flex items-center justify-center border border-gray-200 shadow-sm">
+                      <User size={10} className="text-gray-400" />
+                    </div>
+                  )}
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-semibold text-gray-700 leading-none">
+                      {currentUser.full_name}
+                    </span>
+                    <span className="text-[9px] text-gray-400 font-medium uppercase tracking-tighter mt-0.5">
+                      {currentUser.role === 'admin' ? '관리자' : '선생님'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-900 px-2 py-1 transition-colors"
+                >
+                  <LogOut size={12} />
+                  로그아웃
+                </button>
+              </>
             ) : (
               <Link
                 href="/login"
@@ -305,10 +327,12 @@ export default function HomePage() {
       </header>
 
       {/* 2-week calendar strip */}
-      <WeeklyCalendar
-        selectedDate={selectedDate}
-        onSelect={setSelectedDate}
-      />
+      <div className="max-w-6xl mx-auto w-full">
+        <WeeklyCalendar
+          selectedDate={selectedDate}
+          onSelect={setSelectedDate}
+        />
+      </div>
 
       {/* Timetable */}
       <main className="flex-1 max-w-6xl w-full mx-auto">
@@ -351,6 +375,8 @@ export default function HomePage() {
           teachers={teachers}
           currentUser={currentUser}
           operatingHours={operatingHours.find(h => h.day_of_week === (new Date(selectedDate).getDay()))}
+          reservations={reservations}
+          recurringSchedules={recurringSchedules}
         />
       )}
     </div>

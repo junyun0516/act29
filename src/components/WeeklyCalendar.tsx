@@ -35,7 +35,7 @@ export default function WeeklyCalendar({ selectedDate, onSelect }: Props) {
                 </button>
             </div>
             {/* Scrollable date strip */}
-            <div className="flex overflow-x-auto scrollbar-none pb-3 px-2 gap-0.5">
+            <div className="flex overflow-x-auto scrollbar-none pb-3 px-2 gap-0.5 sm:justify-center">
                 {dates.map((date) => {
                     const str = toDateString(date);
                     const isSelected = str === selectedDate;
