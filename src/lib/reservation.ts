@@ -18,16 +18,28 @@ export function isVacant(reservation: {
 
 /**
  * HH:mm 형식의 30분 단위 타임슬롯 배열을 생성합니다.
- * 기본: 09:00 ~ 22:00
+ * @param startTime '09:00' format
+ * @param endTime '22:00' format
  */
 export function generateTimeSlots(
-    startHour = 9,
-    endHour = 22
+    startTime = '09:00',
+    endTime = '22:00'
 ): string[] {
     const slots: string[] = [];
-    for (let h = startHour; h < endHour; h++) {
-        slots.push(`${String(h).padStart(2, '0')}:00`);
-        slots.push(`${String(h).padStart(2, '0')}:30`);
+    const [startH, startM] = startTime.split(':').map(Number);
+    const [endH, endM] = endTime.split(':').map(Number);
+
+    let currentH = startH;
+    let currentM = startM;
+
+    while (currentH < endH || (currentH === endH && currentM < endM)) {
+        slots.push(`${String(currentH).padStart(2, '0')}:${String(currentM).padStart(2, '0')}`);
+
+        currentM += 30;
+        if (currentM >= 60) {
+            currentM -= 60;
+            currentH += 1;
+        }
     }
     return slots;
 }

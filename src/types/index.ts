@@ -8,6 +8,7 @@ export type Profile = {
     id: string;
     email: string;
     full_name: string;
+    avatar_url: string | null; // 프로필 이미지 URL
     role: Role;
     subject: string | null; // 담당 과목
     created_at: string;
@@ -31,12 +32,12 @@ export type Lesson = {
     teacher?: Profile;
 };
 
-export type ReservationStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type ReservationStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'blocked';
 
 export type Reservation = {
     id: string;
     classroom_id: string;
-    lesson_id: string;
+    lesson_id: string | null;
     teacher_id: string;
     date: string;           // YYYY-MM-DD
     start_time: string;     // HH:mm
@@ -58,6 +59,31 @@ export type Invitation = {
     used: boolean;
     expires_at: string;
     created_at: string;
+};
+
+export type OperatingHours = {
+    id: string;
+    day_of_week: number;   // 0 (일) ~ 6 (토)
+    open_time: string;     // HH:mm (or HH:mm:ss)
+    close_time: string;    // HH:mm (or HH:mm:ss)
+    is_closed: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
+export type RecurringSchedule = {
+    id: string;
+    day_of_week: number;
+    start_time: string;
+    end_time: string;
+    classroom_id: string;
+    teacher_id: string;
+    lesson_id: string | null;
+    created_at: string;
+    updated_at: string;
+    // 관계 데이터 (조인용)
+    teacher?: { full_name: string };
+    lesson?: { title: string };
 };
 
 // 타임슬롯 – UI에서 사용
