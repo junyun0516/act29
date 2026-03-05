@@ -7,12 +7,16 @@ export async function GET(request: NextRequest) {
     const { searchParams, origin } = new URL(request.url);
     const code = searchParams.get('code');
     const token = searchParams.get('token'); // 초대 토큰
+    const next = searchParams.get('next'); // 리다이렉트할 추가 경로
 
     if (code) {
         const supabase = await createClient();
         const { error } = await supabase.auth.exchangeCodeForSession(code);
 
         if (!error) {
+            if (next) {
+                return NextResponse.redirect(`${origin}${next}`);
+            }
             return NextResponse.redirect(`${origin}`);
         }
     }

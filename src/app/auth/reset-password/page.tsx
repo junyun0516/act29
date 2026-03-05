@@ -13,19 +13,7 @@ export default function ResetPasswordPage() {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
-    const [ready, setReady] = useState(false);
     const supabase = createClient();
-
-    useEffect(() => {
-        // Supabase가 URL의 해시(#)에서 recovery 토큰을 자동으로 감지하여 세션을 설정합니다.
-        // 세션이 설정되면 비밀번호 변경이 가능합니다.
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-            if (event === 'PASSWORD_RECOVERY') {
-                setReady(true);
-            }
-        });
-        return () => subscription.unsubscribe();
-    }, [supabase]);
 
     const handleReset = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -68,51 +56,42 @@ export default function ResetPasswordPage() {
 
                 {/* Body */}
                 <div className="px-6 py-6 space-y-5">
-                    {!ready ? (
-                        <div className="text-center py-6 space-y-3">
-                            <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-gray-900 mx-auto"></div>
-                            <p className="text-sm text-gray-500">
-                                인증 정보를 확인하고 있습니다...
-                            </p>
+                    <form onSubmit={handleReset} className="space-y-4">
+                        <p className="text-sm text-gray-600">
+                            새로운 비밀번호를 입력해주세요.
+                        </p>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="newPassword" className="text-xs font-semibold text-gray-700">새 비밀번호</Label>
+                            <Input
+                                id="newPassword"
+                                type="password"
+                                placeholder="••••••••"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="rounded-none h-11 text-sm border-gray-200 focus:border-gray-900 focus:ring-0 transition-colors"
+                                required
+                            />
                         </div>
-                    ) : (
-                        <form onSubmit={handleReset} className="space-y-4">
-                            <p className="text-sm text-gray-600">
-                                새로운 비밀번호를 입력해주세요.
-                            </p>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="newPassword" className="text-xs font-semibold text-gray-700">새 비밀번호</Label>
-                                <Input
-                                    id="newPassword"
-                                    type="password"
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="rounded-none h-11 text-sm border-gray-200 focus:border-gray-900 focus:ring-0 transition-colors"
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="confirmNewPassword" className="text-xs font-semibold text-gray-700">비밀번호 확인</Label>
-                                <Input
-                                    id="confirmNewPassword"
-                                    type="password"
-                                    placeholder="••••••••"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className="rounded-none h-11 text-sm border-gray-200 focus:border-gray-900 focus:ring-0 transition-colors"
-                                    required
-                                />
-                            </div>
-                            <Button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full rounded-none h-11 text-sm font-bold bg-gray-900 hover:bg-gray-800 text-white transition-colors"
-                            >
-                                {loading ? '처리 중...' : '비밀번호 변경'}
-                            </Button>
-                        </form>
-                    )}
+                        <div className="space-y-1.5">
+                            <Label htmlFor="confirmNewPassword" className="text-xs font-semibold text-gray-700">비밀번호 확인</Label>
+                            <Input
+                                id="confirmNewPassword"
+                                type="password"
+                                placeholder="••••••••"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                className="rounded-none h-11 text-sm border-gray-200 focus:border-gray-900 focus:ring-0 transition-colors"
+                                required
+                            />
+                        </div>
+                        <Button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full rounded-none h-11 text-sm font-bold bg-gray-900 hover:bg-gray-800 text-white transition-colors"
+                        >
+                            {loading ? '처리 중...' : '비밀번호 변경'}
+                        </Button>
+                    </form>
                 </div>
             </div>
 
