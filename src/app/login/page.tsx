@@ -99,7 +99,7 @@ function LoginContent() {
         }
         setLoading(true);
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
+            redirectTo: `${window.location.origin}/auth/reset-password`,
         });
         if (error) toast.error(`요청 실패: ${error.message}`);
         else toast.success('비밀번호 재설정 링크를 메일로 보내드렸습니다.');
