@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Classroom, Profile, OperatingHours } from '@/types';
+import { Classroom, Profile, OperatingHours, FLOORS, DEPARTMENTS } from '@/types';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -29,7 +29,7 @@ export default function AdminPage() {
     const [operatingHours, setOperatingHours] = useState<OperatingHours[]>([]);
 
     // Classroom form
-    const [cls, setCls] = useState({ floor: '', name: '' });
+    const [cls, setCls] = useState({ floor: '1층' as string, name: '' });
     const [selectedClassroom, setSelectedClassroom] = useState<Classroom | null>(null);
 
     const [selectedTeacher, setSelectedTeacher] = useState<Profile | null>(null);
@@ -207,12 +207,19 @@ export default function AdminPage() {
                             <div className="grid grid-cols-2 gap-3 mb-3">
                                 <div className="space-y-1">
                                     <Label className="text-xs">층</Label>
-                                    <Input
-                                        placeholder="예: 3층"
+                                    <Select
                                         value={cls.floor}
-                                        onChange={(e) => setCls({ ...cls, floor: e.target.value })}
-                                        className="rounded-none h-9 text-sm"
-                                    />
+                                        onValueChange={(v) => setCls({ ...cls, floor: v })}
+                                    >
+                                        <SelectTrigger className="rounded-none h-9 text-sm border-gray-200 bg-white">
+                                            <SelectValue placeholder="선택" />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-none shadow-md border-gray-200">
+                                            {FLOORS.map(f => (
+                                                <SelectItem key={f} value={f} className="text-sm">{f}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                                 <div className="space-y-1">
                                     <Label className="text-xs">이름</Label>
@@ -445,10 +452,11 @@ function TeacherEditForm({
 }) {
     const [name, setName] = useState(teacher.full_name || '');
     const [subject, setSubject] = useState(teacher.subject || '');
+    const [department, setDepartment] = useState(teacher.department || null);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave({ full_name: name, subject });
+        onSave({ full_name: name, subject, department });
     };
 
     return (
@@ -485,6 +493,24 @@ function TeacherEditForm({
                 />
             </div>
 
+            <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-gray-700">소속</Label>
+                <Select
+                    value={department || 'none'}
+                    onValueChange={(v) => setDepartment(v === 'none' ? null : v)}
+                >
+                    <SelectTrigger className="rounded-none h-9 text-sm border-gray-200 bg-white">
+                        <SelectValue placeholder="소속 선택 (선택 사항)" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none shadow-md border-gray-200">
+                        <SelectItem value="none" className="text-sm text-gray-400 font-normal italic">선택 안함</SelectItem>
+                        {DEPARTMENTS.map(d => (
+                            <SelectItem key={d} value={d} className="text-sm">{d}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+
             <div className="pt-4 flex gap-2">
                 <Button type="button" variant="outline" onClick={onCancel} className="flex-1 rounded-none text-sm h-9">
                     취소
@@ -512,19 +538,26 @@ function ClassroomEditForm({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave({ floor, name });
+        onSave({ floor: floor || '1층', name });
     };
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-gray-700">층</Label>
-                <Input
+                <Select
                     value={floor}
-                    onChange={(e) => setFloor(e.target.value)}
-                    placeholder="예: 3층"
-                    className="rounded-none h-9 text-sm"
-                />
+                    onValueChange={setFloor}
+                >
+                    <SelectTrigger className="rounded-none h-9 text-sm border-gray-200 bg-white">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none shadow-md border-gray-200">
+                        {FLOORS.map(f => (
+                            <SelectItem key={f} value={f} className="text-sm">{f}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
             </div>
 
             <div className="space-y-1.5">
@@ -602,6 +635,11 @@ function UserList({
                             {u.subject && (
                                 <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 text-gray-500 rounded">
                                     {u.subject}
+                                </span>
+                            )}
+                            {u.department && (
+                                <span className="text-[10px] bg-blue-50 px-1.5 py-0.5 text-blue-600 rounded font-medium border border-blue-100">
+                                    {u.department}
                                 </span>
                             )}
                         </div>

@@ -4,6 +4,12 @@
 
 export type Role = 'admin' | 'teacher' | 'user';
 
+export const FLOORS = ['지하 2층', '지하 1층', '1층', '2층', '3층'] as const;
+export type Floor = typeof FLOORS[number];
+
+export const DEPARTMENTS = ['오케스트라', '중등부'] as const;
+export type Department = typeof DEPARTMENTS[number];
+
 export type Profile = {
     id: string;
     email: string;
@@ -11,6 +17,7 @@ export type Profile = {
     avatar_url: string | null; // 프로필 이미지 URL
     role: Role;
     subject: string | null; // 담당 과목
+    department: string | null; // 소속
     created_at: string;
 };
 
